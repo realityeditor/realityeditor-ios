@@ -126,6 +126,7 @@ public:
     int developerState = 0;
     int extTrackingState = 0;
     int clearSkyState = 0;
+    int orentationState = 1;
       int realityState = 0;
     int instantState = 1;
     string externalState = "";

@@ -41,6 +41,9 @@ void realityEditor::setup() {
     developerState = XML.getValue("SETUP:DEVELOPER", 0);
     extTrackingState = XML.getValue("SETUP:TRACKING", 0);
     clearSkyState = XML.getValue("SETUP:CLEARSKY", 0);
+      orentationState = XML.getValue("SETUP:ORIENTATIONSTATE", 1);
+    
+    
     instantState = XML.getValue("SETUP:INSTANT", 1);
     externalState = XML.getValue("SETUP:EXTERNAL", "");
     realityState = XML.getValue("SETUP:REALITY", 0);
@@ -150,7 +153,7 @@ void realityEditor::setup() {
     Vuforia.autoFocusOn();
     Vuforia.setOrientation(OFX_Vuforia_ORIENTATION_LANDSCAPE_LEFT);
     Vuforia.setCameraPixelsFlag(true);
-    Vuforia.setMaxNumOfMarkers(5);
+    Vuforia.setMaxNumOfMarkers(25);
     Vuforia.setup();
 
 
@@ -227,6 +230,12 @@ void realityEditor::handleCustomRequest(NSString *request, NSURL *url) {
     if (reqstring == "kickoff") {
         waitUntil = true;
         NSLog(@"kickoff");
+        
+        
+        NSString *setOrientation = [NSString stringWithFormat:@"setOrientation(%ld);", (long)[[UIDevice currentDevice] orientation]];
+        interface.runJavaScriptFromString(setOrientation);
+        
+        
 
         if(haveChangedUIwithURL > 0){
             // reloader = true;
@@ -244,13 +253,13 @@ void realityEditor::handleCustomRequest(NSString *request, NSURL *url) {
 
         // if the message is reload then the interface reloads and all objects are resent to the editor
         
-        NSString *stateSender = [NSString stringWithFormat:@"%s.setStates(%d, %d, %d, %d, \"%s\", %d)",
+        NSString *stateSender = [NSString stringWithFormat:@"%s.setStates(%d, %d, %d, %d, \"%s\", %d, %d)",
                                  deviceNamespace.c_str(),
                                  developerState,
                                  extTrackingState,
                                  clearSkyState,
                                  instantState,
-                                 externalState.c_str(), realityState];
+                                 externalState.c_str(), realityState, orentationState];
         interface.runJavaScriptFromString(stateSender);
         
         NSString *deviceSender = [NSString stringWithFormat:@"%s.setDeviceName(\"%s\")",
@@ -305,14 +314,14 @@ void realityEditor::handleCustomRequest(NSString *request, NSURL *url) {
 
 
         //reloader = true;
-        NSString *stateSender = [NSString stringWithFormat:@"%s.setStates(%d, %d, %d, %d, \"%s\", %d)",
+        NSString *stateSender = [NSString stringWithFormat:@"%s.setStates(%d, %d, %d, %d, \"%s\", %d, %d)",
                                  deviceNamespace.c_str(),
                                  developerState,
                                  extTrackingState,
                                  clearSkyState,
                                  instantState,
                                  externalState.c_str(),
-                                 realityState];
+                                 realityState, orentationState];
         interface.runJavaScriptFromString(stateSender);
 
     }
@@ -372,6 +381,19 @@ void realityEditor::handleCustomRequest(NSString *request, NSURL *url) {
     }
     if (reqstring == "instantOff") {
         XML.setValue("SETUP:INSTANT", 0);
+        XML.saveFile(ofxiOSGetDocumentsDirectory() + "editor.xml" );
+        cout << "editor.xml saved to app documents folder";
+    }
+    
+    if (reqstring == "orientationStateOn") {
+        XML.setValue("SETUP:ORIENTATIONSTATE", 1);
+        XML.saveFile(ofxiOSGetDocumentsDirectory() + "editor.xml" );
+        cout << "editor.xml saved to app documents folder";
+        
+        
+    }
+    if (reqstring == "orientationStateOff") {
+        XML.setValue("SETUP:ORIENTATIONSTATE", 0);
         XML.saveFile(ofxiOSGetDocumentsDirectory() + "editor.xml" );
         cout << "editor.xml saved to app documents folder";
     }
@@ -1151,20 +1173,12 @@ void realityEditor::cons() {
 }
 
 void realityEditor::deviceOrientationChanged(int newOrientation){
-    // ofxVuforia & Vuforia = *ofxVuforia::getInstance();
     
+    // sending the roation in to the Editor.
     
-    if(newOrientation == 4){
-        //  ofSetOrientation((ofOrientation)newOrientation);
-        //   Vuforia.setOrientation(OFX_Vuforia_ORIENTATION_LANDSCAPE_RIGHT);
-        
-    }
+    NSString *setOrientation = [NSString stringWithFormat:@"setOrientation(%ld);", (long)[[UIDevice currentDevice] orientation]];
+    interface.runJavaScriptFromString(setOrientation);
     
-    if(newOrientation == 3){
-        // ofSetOrientation((ofOrientation)newOrientation);
-        
-        //  Vuforia.setOrientation(OFX_Vuforia_ORIENTATION_LANDSCAPE_LEFT);
-    }
 }
 
 ofImage realityEditor::getCameraImage() {
