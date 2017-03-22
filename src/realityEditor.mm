@@ -8,6 +8,7 @@ static const string deviceNamespace = "realityEditor.device";
 static const string arNamespace = "realityEditor.gui.ar";
 static const string drawNamespace = "realityEditor.gui.ar.draw";
 static const string memoryNamespace = "realityEditor.gui.memory";
+static const string menusNamespace = "realityEditor.gui.menus";
 
 //--------------------------------------------------------------
 void realityEditor::setup() {
@@ -132,8 +133,16 @@ void realityEditor::setup() {
     // images for status in the editor
     imgInterface.load("interface.png");
     imgObject.load("object.png");
+    imgInterface180.load("interface180.png");
+    imgObject180.load("object180.png");
 
-    imgObject.draw(20, 20);
+    
+    if(orientations == 1 || orientations == 4){
+        imgObject.draw(20, 20);
+    } else {
+        imgObject180.draw(ofGetWidth()- 178, ofGetHeight()-49);
+    }
+
 
     // variables for status
     waitUntil = false;
@@ -232,9 +241,10 @@ void realityEditor::handleCustomRequest(NSString *request, NSURL *url) {
         NSLog(@"kickoff");
         
         
-        NSString *setOrientation = [NSString stringWithFormat:@"setOrientation(%ld);", (long)[[UIDevice currentDevice] orientation]];
+        NSString *setOrientation = [NSString stringWithFormat:@"realityEditor.gui.menus.setOrientation(%ld)", (long)[[UIDevice currentDevice] orientation]];
         interface.runJavaScriptFromString(setOrientation);
         
+        orientations = [[UIDevice currentDevice] orientation];
         
 
         if(haveChangedUIwithURL > 0){
@@ -711,9 +721,17 @@ void realityEditor::draw() {
 
     if (!waitGUI) {
         if (waitUntil) {
-            imgObject.draw(20, 20);
+            if(orientations == 1 || orientations == 4){
+                imgObject.draw(20, 20);
+            } else {
+                imgObject180.draw(ofGetWidth()- 178, ofGetHeight()-49);
+            }
         } else {
-            imgInterface.draw(20, 20);
+            if(orientations == 1 || orientations == 4){
+                imgInterface.draw(20, 20);
+            } else {
+                imgInterface180.draw(ofGetWidth()- 178, ofGetHeight()-49);
+            }
         }
     }
 
@@ -1176,8 +1194,9 @@ void realityEditor::deviceOrientationChanged(int newOrientation){
     
     // sending the roation in to the Editor.
     
-    NSString *setOrientation = [NSString stringWithFormat:@"setOrientation(%ld);", (long)[[UIDevice currentDevice] orientation]];
+    NSString *setOrientation = [NSString stringWithFormat:@"realityEditor.gui.menus.setOrientation(%ld)", (long)[[UIDevice currentDevice] orientation]];
     interface.runJavaScriptFromString(setOrientation);
+      orientations = [[UIDevice currentDevice] orientation];
     
 }
 

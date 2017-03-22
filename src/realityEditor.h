@@ -108,7 +108,7 @@ public:
 
     bool updateSwitch =true;
 
-    ofImage imgInterface, imgObject;
+    ofImage imgInterface, imgObject, imgObject180, imgInterface180;
     // NSMutableString *stringforTransform;
 
     //vector<ofxVuforia_Marker>tempMarker;
@@ -122,6 +122,8 @@ public:
 
     int haveChangedUIwithURL = 0;
     bool changedURLOk = false;
+    
+    int orientations = 4;
 
     int developerState = 0;
     int extTrackingState = 0;
