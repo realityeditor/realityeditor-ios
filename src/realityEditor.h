@@ -24,6 +24,42 @@
 #include "VuforiaState.h"
 #include "MemoryUploader.h"
 
+enum class DownloadState {
+    Loading, // "w"
+    Loaded,  // "t"
+    Start,   // "f"
+    Stopped,  // "n"
+    Ready    // "a" - only used in final position to signal that all other downloads are completed
+};
+
+static string downloadStateToString(DownloadState ds) {
+  switch (ds) {
+    case DownloadState::Loading:
+      return "w";
+    case DownloadState::Loaded:
+      return "t";
+    case DownloadState::Start:
+      return "f";
+    case DownloadState::Stopped:
+      return "n";
+    case DownloadState::Ready:
+      return "a";
+    default:
+      return "?";
+  }
+}
+
+class Target {
+public:
+    string id, ip, vn, tcs;
+};
+
+class ObjectLoadState {
+public:
+    Target target;
+    array<DownloadState, 4> downloadStates;
+};
+
 class realityEditor : public ofxVuforia_App, ofxWebViewDelegateCpp /*ofxWKWebViewDelegateCpp, ofxUIWebViewDelegateCpp*/ {
 public:
     void setup();
@@ -55,8 +91,8 @@ public:
     // 5 -> state thing
     // 6 -> state thing
     // 7 -> state thing
-    vector<vector<string> > nameCount;
-    vector<vector<string> > targetsList;
+    vector<ObjectLoadState> nameCount;
+    vector<Target> targetsList;
 
     //    ofxWKWebViewInterfaceJavaScript interface;
     //    ofxUIWebViewInterfaceJavaScript interface;
@@ -72,11 +108,10 @@ public:
     bool onlyOnce;
     bool waitGUI;
     char udpMessage[256];
-    bool nameExists = false;
     bool targetExists = false;
     int numbersToMuch;
 
-    string arrayList[3] = {"dat", "xml", "jpg"};
+    array<string, 3> extensions = {"dat", "xml", "jpg"};
 
     int datasetHolder = 100000;
 

@@ -52,15 +52,15 @@ void realityEditor::setup() {
 
     if(numDragTags > numbersToMuch){
 
-        cout <<"-------------- to many markers found. deleting oldest \t";
+        cout <<"-------------- too many markers found. deleting oldest \t";
 
         for(int q = 0; q < numDragTags; q++){
-            vector<string> row;
-            row.push_back(XMLTargets.getValue("target:id", "", q));  //4
-            row.push_back(XMLTargets.getValue("target:ip", "", q)); //5
-            row.push_back(XMLTargets.getValue("target:vn", "0", q)); //6
-            row.push_back(XMLTargets.getValue("target:tcs", "0", q)); //7
-            targetsList.push_back(row);
+            Target target;
+            target.id = XMLTargets.getValue("target:id", "", q);
+            target.ip = XMLTargets.getValue("target:ip", "", q);
+            target.vn = XMLTargets.getValue("target:vn", "0", q);
+            target.tcs = XMLTargets.getValue("target:tcs", "0", q);
+            targetsList.push_back(target);
         }
 
         int numbersToDelete = numDragTags-numbersToMuch;
@@ -68,42 +68,43 @@ void realityEditor::setup() {
         string tmpDir([NSTemporaryDirectory() UTF8String]);
 
         for(int q = 0; q < numbersToDelete; q++){
-
-            if(ofFile::doesFileExist(tmpDir + targetsList[q][0] + ".jpg"))
+            Target target = targetsList[q];
+            string id = targetsList[q].id;
+            if(ofFile::doesFileExist(tmpDir + id + ".jpg"))
                 cout <<"-------------- file exists "<<endl;
             else  cout <<"-------------- file not found "<<endl;
 
-            files_.removeFile(tmpDir + targetsList[q][0] + ".jpg");
-            cout <<"-------------- removing file: "<< targetsList[q][0]  <<".jpg"<<endl;
+            files_.removeFile(tmpDir + id + ".jpg");
+            cout <<"-------------- removing file: "<< id  <<".jpg"<<endl;
 
-            if(!files_.doesFileExist(tmpDir + targetsList[q][0] + ".jpg"))
+            if(!files_.doesFileExist(tmpDir + id + ".jpg"))
                 cout <<"-------------- success "<<endl;
             else
                 cout <<"-------------- file still exists "<<endl;
 
 
-            if(!files_.doesFileExist(tmpDir + targetsList[q][0] + ".xml"))
+            if(!files_.doesFileExist(tmpDir + id + ".xml"))
                 cout <<"-------------- file not found "<<endl;
             else
                 cout <<"-------------- file exists "<<endl;
 
-            files_.removeFile(tmpDir + targetsList[q][0] + ".xml");
-            cout <<"--------------  removing file: "<< targetsList[q][0]  <<".xml"<<endl;
+            files_.removeFile(tmpDir + id + ".xml");
+            cout <<"--------------  removing file: "<< id  <<".xml"<<endl;
 
-            if(!files_.doesFileExist(tmpDir + targetsList[q][0] + ".xml"))
+            if(!files_.doesFileExist(tmpDir + id + ".xml"))
                 cout <<"-------------- success "<<endl;
             else
                 cout <<"-------------- file still exists "<<endl;
 
 
-            if(!files_.doesFileExist(tmpDir + targetsList[q][0] + ".dat"))
+            if(!files_.doesFileExist(tmpDir + id + ".dat"))
                 cout <<"-------------- file not found "<<endl;
             else
                 cout <<"-------------- file exists "<<endl;
 
-            files_.removeFile(tmpDir + targetsList[q][0] + ".dat");
-            cout <<"--------------  removing file: "<< targetsList[q][0]  <<".dat" <<endl;
-            if(!files_.doesFileExist(tmpDir + targetsList[q][0] + ".dat"))
+            files_.removeFile(tmpDir + id + ".dat");
+            cout <<"--------------  removing file: "<< id  <<".dat" <<endl;
+            if(!files_.doesFileExist(tmpDir + id + ".dat"))
                 cout <<"-------------- success "<<endl;
             else
                 cout <<"-------------- file still exists "<<endl;
@@ -115,10 +116,10 @@ void realityEditor::setup() {
 
         for(int q = numbersToDelete; q < numDragTags; q++){
             int tagNum = XMLTargets.addTag("target");
-            XMLTargets.setValue("target:id", targetsList[q][0], tagNum);
-            XMLTargets.setValue("target:ip", targetsList[q][1], tagNum);
-            XMLTargets.setValue("target:vn", targetsList[q][2], tagNum);
-            XMLTargets.setValue("target:tcs", targetsList[q][3], tagNum);
+            XMLTargets.setValue("target:id", targetsList[q].id, tagNum);
+            XMLTargets.setValue("target:ip", targetsList[q].ip, tagNum);
+            XMLTargets.setValue("target:vn", targetsList[q].vn, tagNum);
+            XMLTargets.setValue("target:tcs", targetsList[q].tcs, tagNum);
         }
         XMLTargets.saveFile(ofxiOSGetDocumentsDirectory() + "targets.xml" );
 
@@ -269,12 +270,13 @@ void realityEditor::handleCustomRequest(NSString *request, NSURL *url) {
 
         for (int i = 0; i < nameCount.size(); i++) {
             cout<<&nameCount[i];
+            ObjectLoadState ols = nameCount[i];
             NSString *jsString3 = [NSString stringWithFormat:@"%s.addHeartbeatObject({'id':'%s','ip':'%s','vn':%i,'tcs':'%s'})",
                                    networkNamespace.c_str(),
-                                   nameCount[i][0].c_str(),
-                                   nameCount[i][1].c_str(),
-                                   stoi(nameCount[i][2].c_str()),
-                                   nameCount[i][3].c_str()];
+                                   ols.target.id.c_str(),
+                                   ols.target.ip.c_str(),
+                                   stoi(ols.target.vn.c_str()),
+                                   ols.target.tcs.c_str()];
             interface.runJavaScriptFromString(jsString3);
             //   NSLog(@"reload interfaces");
         }
@@ -498,36 +500,39 @@ void realityEditor::urlResponse(ofHttpResponse &response) {
     // in this case "done" the folloing code is run.
     if (response.status == 200 && response.request.name == "done") {
 
-        string loadrunner = "";
-
         // go trough an array of arrays of strings.
         // the array saves an object by:
         // the json hear beat | dat file laoded | xml file loaded | writen to dictionary.
         // w means loading or writing, f means nothing jet happend, t means fully loaded, n means there is an error or nothing to load.
         for (int i = 0; i < nameCount.size(); i++) {
-            for (int w = 4; w < nameCount[i].size(); w++) {
-                loadrunner = nameCount[i][w];
+            for (int w = 0; w < nameCount[i].downloadStates.size(); w++) {
+                DownloadState loadrunner = nameCount[i].downloadStates[w];
 
-                if (loadrunner == "w") {
+                if (loadrunner == DownloadState::Loading) {
                     string tmpDir([NSTemporaryDirectory() UTF8String]);
-
-                    for(int e = 0;e <  3; e++){
-                        if (w == e+4) {
-                            if (ofBufferToFile(tmpDir + nameCount[i][0] + "."+ arrayList[e], response.data)) {
-                                nameCount[i][w] = "t";
-                                NSLog(@">>copy %s",arrayList[e].c_str());
-                                cons();
-                            }
-                            goto stop2;
-                        }
+                    if (w >= extensions.size()) {
+                      continue;
                     }
+
+                    string fileExt = extensions[w];
+                    string fileName = tmpDir + nameCount[i].target.id + "." + fileExt;
+
+                    if (ofBufferToFile(fileName, response.data)) {
+                        nameCount[i].downloadStates[w] = DownloadState::Loaded;
+                        NSLog(@">>copy %s", fileExt.c_str());
+                        cons();
+                    }
+                    goto stop2;
                 }
             }
 
         stop2:;
 
-            if (nameCount[i][4] == "t" && nameCount[i][5] == "t" && nameCount[i][6] == "t" && nameCount[i][7] == "f") {
-                nameCount[i][7] = "a";
+            if (nameCount[i].downloadStates[0] == DownloadState::Loaded &&
+                nameCount[i].downloadStates[1] == DownloadState::Loaded &&
+                nameCount[i].downloadStates[2] == DownloadState::Loaded &&
+                nameCount[i].downloadStates[3] == DownloadState::Start) {
+                nameCount[i].downloadStates[3] = DownloadState::Ready;
                 NSLog(@">>status at this point");
                 cons();
 
@@ -536,17 +541,16 @@ void realityEditor::urlResponse(ofHttpResponse &response) {
         }
     } else {
 
-        // in case the file does not work out, this is the message to call.
-        string loadrunner = "";
+        // in case the file does not download properly, reset the download state to failed
         for (int i = 0; i < nameCount.size(); i++) {
-            for (int w = 0; w < nameCount[i].size(); w++) {
-                loadrunner = nameCount[i][w];
+            for (int w = 0; w < nameCount[i].downloadStates.size(); w++) {
+                DownloadState loadrunner = nameCount[i].downloadStates[w];
 
-                if (loadrunner == "w") {
-                    nameCount[i][4] = "n";
-                    nameCount[i][5] = "n";
-                    nameCount[i][6] = "n";
-                    nameCount[i][7] = "n";
+                if (loadrunner == DownloadState::Loading) {
+                    nameCount[i].downloadStates[0] = DownloadState::Stopped;
+                    nameCount[i].downloadStates[1] = DownloadState::Stopped;
+                    nameCount[i].downloadStates[2] = DownloadState::Stopped;
+                    nameCount[i].downloadStates[3] = DownloadState::Stopped;
                 }
             }
         }
@@ -653,7 +657,7 @@ void realityEditor::update() {
         if (nameCount.size() == 0) waitGUI = false;
 
         for (int i = 0; i < nameCount.size(); i++) {
-            if (nameCount[i][4] != "t" && nameCount[i][4] != "n") {
+            if (nameCount[i].downloadStates[0] != DownloadState::Loaded && nameCount[i].downloadStates[0] != DownloadState::Stopped) {
                 waitGUI = false;
                 // NSLog(@">>response");
             }
@@ -725,14 +729,12 @@ void realityEditor::draw() {
 }
 
 void realityEditor::downloadTargets() {
-    string loadrunner = "";
     // file handling
 
     // check if udp message
     while (udpConnection.Receive(udpMessage, 256) > 0) {
         //NSLog(@">>downloads");
         string message = udpMessage;
-        nameExists = false;
 
         // ofLog() << "Received udp message " << message;
 
@@ -748,24 +750,17 @@ void realityEditor::downloadTargets() {
                 NSString *jsStringWithoutNewlines = [[jsString4 componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]] componentsJoinedByString:@" "];
                 interface.runJavaScriptFromString(jsStringWithoutNewlines);
                 NSLog(@"%@", jsStringWithoutNewlines);
-                goto stop2;
-                break;
-                
+                return;
             } else {
-            
-                nameExists = true;
                 NSLog(@">>udp message is not a object ping");
                 NSLog(@"%s", json["id"].toStyledString().c_str());
-                goto stop2;
-                break;
+                return;
             }
         }
         
         if(json["ip"].asString().size()<7){
             NSLog(@">>ip was wrong");
-            nameExists = true;
-            goto stop2;
-            break;
+            return;
         }
 
         string nameJson = "";
@@ -778,268 +773,244 @@ void realityEditor::downloadTargets() {
         if(!json["tcs"].asString().empty()){
 
             for (int i = 0; i < nameCount.size(); i++) {
-
-                if(nameCount[i][3].c_str() == json["tcs"].asString()){
-                    nameExists = true;
-                    goto stop2;
-                    break;
+                if(nameCount[i].target.tcs == json["tcs"].asString()){
+                    return;
                 }
                 
             }
         } else {
             for (int i = 0; i < nameCount.size(); i++) {
-                if (nameCount[i][0] == json["id"].asString()) {
-                    nameExists = true;
-                    goto stop2;
-                    break;
+                if (nameCount[i].target.id == json["id"].asString()) {
+                    return;
                 };
             };
             
         }
         targetExists = false;
-        if (nameExists == false) {
+        
+        int numDragTags = XMLTargets.getNumTags("target");
+        
+        if(numDragTags > 0){
             
-            int numDragTags = XMLTargets.getNumTags("target");
-            
-            if(numDragTags > 0){
+            for(int i = 0; i< numDragTags; i++){
                 
-                for(int i = 0; i< numDragTags; i++){
+                string id_ = XMLTargets.getValue("target:id", "", i);
+                string ip_ = XMLTargets.getValue("target:ip", "", i);
+                string vn_ = XMLTargets.getValue("target:vn", "0", i);
+                string tcs_ = XMLTargets.getValue("target:tcs", "0", i);
+                
+                if(id_ == json["id"].asString() &&
+                   tcs_  == json["tcs"].asString() &&
+                   tcs_  != "0"){
                     
-                    string id_ = XMLTargets.getValue("target:id", "", i);
-                    string ip_ = XMLTargets.getValue("target:ip", "", i);
-                    string vn_ = XMLTargets.getValue("target:vn", "0", i);
-                    string tcs_ = XMLTargets.getValue("target:tcs", "0", i);
+                    crc32reset();
                     
-                    if(id_ == json["id"].asString() &&
-                       tcs_  == json["tcs"].asString() &&
-                       tcs_  != "0"){
-                        
-                        crc32reset();
-                        
-                        // this is reproducing the checksom from the actual files.
-                        // if the files are corrupt and not matching with the server version then it forces a new download.
-                        
-                        string tmpDir([NSTemporaryDirectory() UTF8String]);
-                        
-                        buff = ofBufferFromFile(tmpDir + id_ + ".jpg");
-                        crc32(buff.getData(),buff.size());
-                        buff = ofBufferFromFile(tmpDir + id_ + ".xml");
-                        crc32(buff.getData(),buff.size());
-                        buff = ofBufferFromFile(tmpDir + id_ + ".dat");
-                        
-                        if(itob62(crc32(buff.getData(),buff.size())) == tcs_){
-                            targetExists = true;
-                      
-                        NSString *jsString3 = [NSString stringWithFormat:@"%s.addHeartbeatObject({'id':'%s','ip':'%s','vn':%i,'tcs':'%s'})",
-                                               networkNamespace.c_str(),
-                                               id_.c_str(),
-                                               ip_.c_str(),
-                                               stoi(vn_.c_str()),
-                                               tcs_.c_str()];
-                        interface.runJavaScriptFromString(jsString3);
+                    // this is reproducing the checksom from the actual files.
+                    // if the files are corrupt and not matching with the server version then it forces a new download.
+                    
+                    string tmpDir([NSTemporaryDirectory() UTF8String]);
+                    
+                    buff = ofBufferFromFile(tmpDir + id_ + ".jpg");
+                    crc32(buff.getData(),buff.size());
+                    buff = ofBufferFromFile(tmpDir + id_ + ".xml");
+                    crc32(buff.getData(),buff.size());
+                    buff = ofBufferFromFile(tmpDir + id_ + ".dat");
+                    
+                    if(itob62(crc32(buff.getData(),buff.size())) == tcs_){
                         targetExists = true;
-                        NSLog(@">>found double for %s",json["id"].asString().c_str());
-                        break;
-                            
-                        } else {
-                            targetExists = false;
-                        }
+                  
+                    NSString *jsString3 = [NSString stringWithFormat:@"%s.addHeartbeatObject({'id':'%s','ip':'%s','vn':%i,'tcs':'%s'})",
+                                           networkNamespace.c_str(),
+                                           id_.c_str(),
+                                           ip_.c_str(),
+                                           stoi(vn_.c_str()),
+                                           tcs_.c_str()];
+                    interface.runJavaScriptFromString(jsString3);
+                    targetExists = true;
+                    NSLog(@">>found double for %s",json["id"].asString().c_str());
+                    break;
                         
+                    } else {
+                        targetExists = false;
                     }
                     
                 }
+                
             }
         }
         
         // if name is not in the array generate a new row of an array of strings. and fill them with "f" so that the software knows to process all.
         // remember, the first cell is the full json heart beat, the second indicates the status of the dat file the 3th the status of the xml file and the last cell indicates the status of adding the files to the dictionary.
-        if (nameExists == false) {
-            
-            
-            bool yespush = true;
-            
-            for (int i = 0; i < nameCount.size(); i++) {
-                if (nameCount[i][0] == json["id"].asString()) {
-                    
-                    ofxVuforia & Vuforia = *ofxVuforia::getInstance();
-                    if(datasetList.size()>0)
-                    Vuforia.removeExtraTarget(datasetList[i]);
-                    
-                    datasetHolder = i;
-                    
-                    nameCount[i][0] = json["id"].asString();
-                    nameCount[i][1] = json["ip"].asString();
-                    nameCount[i][2] = json["vn"].asString();
-                    nameCount[i][3] = json["tcs"].asString();
-                    nameCount[i][4] = "f";
-                    nameCount[i][5] = "f";
-                    nameCount[i][6] = "f";
-                    nameCount[i][7] = "f";
-                    
-                    
-                    string tmpDir([NSTemporaryDirectory() UTF8String]);
-                    
-                    
-                    files_.removeFile(tmpDir + nameCount[i][0] + ".jpg");
-                    files_.removeFile(tmpDir + nameCount[i][0] + ".xml");
-                    files_.removeFile(tmpDir + nameCount[i][0] + ".dat");
-                    
-                    
-                    
-                    yespush = false;
-                    
-                };
-            };
-            
-            
-            if(yespush){
-                vector<string> row;
-                row.push_back(json["id"].asString()); //0
-                row.push_back(json["ip"].asString()); // 1
-                if(!json["vn"].empty()){                //2
-                    row.push_back(json["vn"].asString());
-                } else{
-                    row.push_back("0");
-                }
-                if(!json["tcs"].empty()){               //3
-                    row.push_back(json["tcs"].asString());
-                } else{
-                    row.push_back("0");
-                }
-                if(targetExists) {
-                    row.push_back("t");  //4
-                    row.push_back("t"); //5
-                    row.push_back("t"); //6
-                    row.push_back("a"); //7
-                } else
-                {
-                    row.push_back("f");  //4
-                    row.push_back("f"); //5
-                    row.push_back("f"); //6
-                    row.push_back("f"); //7
-                }
+        
+        bool yespush = true;
+        
+        for (int i = 0; i < nameCount.size(); i++) {
+            if (nameCount[i].target.id == json["id"].asString()) {
                 
-                nameCount.push_back(row);
-                NSLog(@">>adding new object");
-                cons();
+                ofxVuforia & Vuforia = *ofxVuforia::getInstance();
+                if(datasetList.size()>0)
+                Vuforia.removeExtraTarget(datasetList[i]);
+                
+                datasetHolder = i;
+                
+                nameCount[i].target.id = json["id"].asString();
+                nameCount[i].target.ip = json["ip"].asString();
+                nameCount[i].target.vn = json["vn"].asString();
+                nameCount[i].target.tcs = json["tcs"].asString();
+                nameCount[i].downloadStates[0] = DownloadState::Start;
+                nameCount[i].downloadStates[1] = DownloadState::Start;
+                nameCount[i].downloadStates[2] = DownloadState::Start;
+                nameCount[i].downloadStates[3] = DownloadState::Start;
+                
+                
+                string tmpDir([NSTemporaryDirectory() UTF8String]);
+                
+                
+                files_.removeFile(tmpDir + nameCount[i].target.id + ".jpg");
+                files_.removeFile(tmpDir + nameCount[i].target.id + ".xml");
+                files_.removeFile(tmpDir + nameCount[i].target.id + ".dat");
+                
+                
+                
+                yespush = false;
+                
+            };
+        };
+        
+        
+        if(yespush){
+            ObjectLoadState ols;
+            ols.target.id = json["id"].asString();
+            ols.target.ip = json["ip"].asString();
+
+            if (!json["vn"].empty()) {
+                ols.target.vn = json["vn"].asString();
+            } else {
+                ols.target.vn = "0";
             }
+
+            if (!json["tcs"].empty()) {
+                ols.target.tcs = json["tcs"].asString();
+            } else {
+                ols.target.tcs = "0";
+            }
+
+            if (targetExists) {
+                ols.downloadStates[0] = DownloadState::Loaded;
+                ols.downloadStates[1] = DownloadState::Loaded;
+                ols.downloadStates[2] = DownloadState::Loaded;
+                ols.downloadStates[3] = DownloadState::Ready;
+            } else {
+                ols.downloadStates[0] = DownloadState::Start;
+                ols.downloadStates[1] = DownloadState::Start;
+                ols.downloadStates[2] = DownloadState::Start;
+                ols.downloadStates[3] = DownloadState::Start;
+            }
+            
+            nameCount.push_back(ols);
+            NSLog(@">>adding new object");
+            cons();
         }
     }
     
     // process the file downloads
-    loadrunner = "";
+    bool loadingURL = false;
     
     for (int i = 0; i < nameCount.size(); i++) {
-        if (loadrunner == "w") {
+        if (loadingURL) {
             break;
         }
-        
-        for (int w = 4; w < nameCount[i].size(); w++) {
-            loadrunner = nameCount[i][w];
-            if (loadrunner == "w") {
+
+        for (int w = 0; w < nameCount[i].downloadStates.size(); w++) {
+            DownloadState loadrunner = nameCount[i].downloadStates[w];
+            if (loadrunner == DownloadState::Loading) {
+                loadingURL = true;
                 break;
             }
-            else if (loadrunner == "f") {
-                
-                for(int e = 0;e <  3; e++){
-                    
-                    if (w == e+4) {
-                        string objName = getName(nameCount[i][0]);
-                        string sURL = "http://" + nameCount[i][1] + ":8080/obj/" + objName + "/target/target."+arrayList[e];
-                        ofLoadURLAsync(sURL, "done");
-                        nameCount[i][w] = "w";
-                        loadrunner = "w";
-                        NSLog(@">>downloading %s",arrayList[e].c_str());
-                        cons();
-                        loadrunner = "w";
-                        goto stop1;
-                    }
-                    
+            else if (loadrunner == DownloadState::Start) {
+                if (w < extensions.size()) {
+                    string fileExt = extensions[w];
+                    string objName = getName(nameCount[i].target.id);
+                    string sURL = "http://" + nameCount[i].target.ip + ":8080/obj/" + objName + "/target/target." + fileExt;
+                    ofLoadURLAsync(sURL, "done");
+                    nameCount[i].downloadStates[w] = DownloadState::Loading;
+                    NSLog(@">>downloading %s", fileExt.c_str());
+                    cons();
+                    // continue onto next object
+                    break;
                 }
-                
             }
             // process the dictonary addon
-            else if (loadrunner == "a") {
+            else if (loadrunner == DownloadState::Ready) {
                 string tmpDir([NSTemporaryDirectory() UTF8String]);
                 ofxVuforia & Vuforia = *ofxVuforia::getInstance();
                 
                 cout <<"--------------------";
-                cout <<nameCount[i][0];
+                cout <<nameCount[i].target.id;
                 cout <<"--------------------";
-                
-                if(nameCount[i][w] == "a"){
+
+                if(datasetHolder ==100000){
+                    datasetList.push_back(Vuforia.addExtraTarget(tmpDir + nameCount[i].target.id + ".xml"));
                     
-                    if(datasetHolder ==100000){
-                        datasetList.push_back(Vuforia.addExtraTarget(tmpDir + nameCount[i][0] + ".xml"));
-                        
-                    } else {
-                        if(datasetList.size()>0){
-                        datasetList[datasetHolder]=(Vuforia.addExtraTarget(tmpDir + nameCount[i][0] + ".xml"));
+                } else {
+                    if(datasetList.size()>0){
+                        datasetList[datasetHolder]=(Vuforia.addExtraTarget(tmpDir + nameCount[i].target.id + ".xml"));
                         datasetHolder =100000;
-                        }
                     }
-                    
-                    
-                    
-                    cout << "this set size: "<< datasetList.size() << endl;
-                    
-                    NSString *jsString3 = [NSString stringWithFormat:@"%s.addHeartbeatObject({'id':'%s','ip':'%s','vn':%i,'tcs':'%s'})",
-                                           networkNamespace.c_str(),
-                                           nameCount[i][0].c_str(),
-                                           nameCount[i][1].c_str(),
-                                           stoi(nameCount[i][2].c_str()),
-                                           nameCount[i][3].c_str()];
-                    interface.runJavaScriptFromString(jsString3);
-                    
-                    
-                    
-                    
-                    int numDragTags2 = XMLTargets.getNumTags("target");
-                    
-                    bool checkDouble = false;
-                    if(numDragTags2 > 0){
-                        
-                        for(int e = 0; e< numDragTags2; e++){
-                            if(nameCount[i][0] == XMLTargets.getValue("target:id", "", e)){
-                                XMLTargets.setValue("target:id", nameCount[i][0], e);
-                                XMLTargets.setValue("target:ip", nameCount[i][1], e);
-                                XMLTargets.setValue("target:vn", nameCount[i][2], e);
-                                XMLTargets.setValue("target:tcs",nameCount[i][3], e);
-                                checkDouble = true;
-                            };
-                        }
-                    }
-                    
-                    if(!checkDouble) {
-                        int tagNum = XMLTargets.addTag("target");
-                        XMLTargets.setValue("target:id", nameCount[i][0], tagNum);
-                        XMLTargets.setValue("target:ip", nameCount[i][1], tagNum);
-                        XMLTargets.setValue("target:vn", nameCount[i][2], tagNum);
-                        XMLTargets.setValue("target:tcs", nameCount[i][3], tagNum);
-                    }
-                    XMLTargets.saveFile(ofxiOSGetDocumentsDirectory() + "targets.xml" );
-                    
-                    
                 }
-                nameCount[i][w] = "t";
                 
                 
-                loadrunner = "w";
+                
+                cout << "this set size: "<< datasetList.size() << endl;
+                
+                NSString *jsString3 = [NSString stringWithFormat:@"%s.addHeartbeatObject({'id':'%s','ip':'%s','vn':%i,'tcs':'%s'})",
+                                       networkNamespace.c_str(),
+                                       nameCount[i].target.id.c_str(),
+                                       nameCount[i].target.ip.c_str(),
+                                       stoi(nameCount[i].target.vn.c_str()),
+                                       nameCount[i].target.tcs.c_str()];
+                interface.runJavaScriptFromString(jsString3);
+
+                int numDragTags2 = XMLTargets.getNumTags("target");
+
+                bool checkDouble = false;
+                if(numDragTags2 > 0){
+
+                    for(int e = 0; e< numDragTags2; e++){
+                        if(nameCount[i].target.id == XMLTargets.getValue("target:id", "", e)){
+                            XMLTargets.setValue("target:id", nameCount[i].target.id, e);
+                            XMLTargets.setValue("target:ip", nameCount[i].target.ip, e);
+                            XMLTargets.setValue("target:vn", nameCount[i].target.vn, e);
+                            XMLTargets.setValue("target:tcs",nameCount[i].target.tcs, e);
+                            checkDouble = true;
+                        }
+                    }
+                }
+
+                if(!checkDouble) {
+                    int tagNum = XMLTargets.addTag("target");
+                    XMLTargets.setValue("target:id", nameCount[i].target.id, tagNum);
+                    XMLTargets.setValue("target:ip", nameCount[i].target.ip, tagNum);
+                    XMLTargets.setValue("target:vn", nameCount[i].target.vn, tagNum);
+                    XMLTargets.setValue("target:tcs", nameCount[i].target.tcs, tagNum);
+                }
+                XMLTargets.saveFile(ofxiOSGetDocumentsDirectory() + "targets.xml" );
+
+                nameCount[i].downloadStates[w] = DownloadState::Loaded;
+
+
                 NSLog(@">>adding target");
-                
+
                 if(extendedTracking){
                     ofxVuforia & Vuforia = *ofxVuforia::getInstance();
                     Vuforia.startExtendedTracking();
                 }
                 cons();
-                loadrunner = "w";
                 
-                goto stop1;
+                continue;
             }
         }
-    stop1:;
     }
-    stop2:;
 }
 
 void realityEditor::VuforiaInitARDone(NSError *error) {
@@ -1145,9 +1116,18 @@ void realityEditor::renderJavascript() {
 void realityEditor::cons() {
     NSLog(@">>cons");
     for (int i = 0; i < nameCount.size(); i++) {
-        NSLog(@"%s %s %s %s, name: %s version: %s  check: %s", nameCount[i][4].c_str(), nameCount[i][5].c_str(), nameCount[i][6].c_str(), nameCount[i][7].c_str(), nameCount[i][0].c_str(),nameCount[i][2].c_str(),nameCount[i][3].c_str());
+        ObjectLoadState ols = nameCount[i];
+        array<DownloadState, 4> dls = ols.downloadStates;
+        NSLog(@"%s %s %s %s, name: %s version: %s  check: %s",
+            downloadStateToString(dls[0]).c_str(),
+            downloadStateToString(dls[1]).c_str(),
+            downloadStateToString(dls[2]).c_str(),
+            downloadStateToString(dls[3]).c_str(),
+            ols.target.id.c_str(),
+            ols.target.vn.c_str(),
+            ols.target.tcs.c_str()
+        );
     }
-    
 }
 
 void realityEditor::deviceOrientationChanged(int newOrientation){
@@ -1234,11 +1214,11 @@ void realityEditor::uploadMemory(shared_ptr<VuforiaState> memory) {
     string ip;
     string id;
     bool found = false;
-    for (vector<string> info : nameCount) {
-        string infoName = getName(info[0]); // object id
+    for (ObjectLoadState info : nameCount) {
+        string infoName = getName(info.target.id); // object id
         if (objName == infoName) {
-            id = info[0];
-            ip = info[1];
+            id = info.target.id;
+            ip = info.target.ip;
             found = true;
             break;
         }
