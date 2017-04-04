@@ -508,34 +508,32 @@ void realityEditor::urlResponse(ofHttpResponse &response) {
             for (int w = 0; w < nameCount[i].downloadStates.size(); w++) {
                 DownloadState loadrunner = nameCount[i].downloadStates[w];
 
-                if (loadrunner == DownloadState::Loading) {
-                    string tmpDir([NSTemporaryDirectory() UTF8String]);
-                    if (w >= extensions.size()) {
-                      continue;
-                    }
+                if (loadrunner != DownloadState::Loading) {
+                    continue;
+                }
 
-                    string fileExt = extensions[w];
-                    string fileName = tmpDir + nameCount[i].target.id + "." + fileExt;
+                string tmpDir([NSTemporaryDirectory() UTF8String]);
+                if (w >= extensions.size()) {
+                  continue;
+                }
 
-                    if (ofBufferToFile(fileName, response.data)) {
-                        nameCount[i].downloadStates[w] = DownloadState::Loaded;
-                        NSLog(@">>copy %s", fileExt.c_str());
-                        cons();
-                    }
-                    goto stop2;
+                string fileExt = extensions[w];
+                string fileName = tmpDir + nameCount[i].target.id + "." + fileExt;
+
+                if (ofBufferToFile(fileName, response.data)) {
+                    nameCount[i].downloadStates[w] = DownloadState::Loaded;
+                    cout << "Wrote " << fileName << " from " << response.request.url << endl;
+                    cons();
                 }
             }
-
-        stop2:;
 
             if (nameCount[i].downloadStates[0] == DownloadState::Loaded &&
                 nameCount[i].downloadStates[1] == DownloadState::Loaded &&
                 nameCount[i].downloadStates[2] == DownloadState::Loaded &&
                 nameCount[i].downloadStates[3] == DownloadState::Start) {
                 nameCount[i].downloadStates[3] = DownloadState::Ready;
-                NSLog(@">>status at this point");
+                cout << "Fully loaded " << nameCount[i].target.id << " marking as ready" << endl;
                 cons();
-
             }
 
         }
@@ -816,20 +814,18 @@ void realityEditor::downloadTargets() {
                     crc32(buff.getData(),buff.size());
                     buff = ofBufferFromFile(tmpDir + id_ + ".dat");
                     
-                    if(itob62(crc32(buff.getData(),buff.size())) == tcs_){
+                    if(itob62(crc32(buff.getData(),buff.size())) == tcs_) {
                         targetExists = true;
                   
-                    NSString *jsString3 = [NSString stringWithFormat:@"%s.addHeartbeatObject({'id':'%s','ip':'%s','vn':%i,'tcs':'%s'})",
-                                           networkNamespace.c_str(),
-                                           id_.c_str(),
-                                           ip_.c_str(),
-                                           stoi(vn_.c_str()),
-                                           tcs_.c_str()];
-                    interface.runJavaScriptFromString(jsString3);
-                    targetExists = true;
-                    NSLog(@">>found double for %s",json["id"].asString().c_str());
-                    break;
-                        
+                        NSString *jsString3 = [NSString stringWithFormat:@"%s.addHeartbeatObject({'id':'%s','ip':'%s','vn':%i,'tcs':'%s'})",
+                                               networkNamespace.c_str(),
+                                               id_.c_str(),
+                                               ip_.c_str(),
+                                               stoi(vn_.c_str()),
+                                               tcs_.c_str()];
+                        interface.runJavaScriptFromString(jsString3);
+                        NSLog(@">>found double for %s",json["id"].asString().c_str());
+                        break;
                     } else {
                         targetExists = false;
                     }
@@ -848,8 +844,9 @@ void realityEditor::downloadTargets() {
             if (nameCount[i].target.id == json["id"].asString()) {
                 
                 ofxVuforia & Vuforia = *ofxVuforia::getInstance();
-                if(datasetList.size()>0)
-                Vuforia.removeExtraTarget(datasetList[i]);
+                if(datasetList.size()>0) {
+                    Vuforia.removeExtraTarget(datasetList[i]);
+                }
                 
                 datasetHolder = i;
                 
@@ -873,12 +870,12 @@ void realityEditor::downloadTargets() {
                 
                 
                 yespush = false;
-                
-            };
-        };
+            }
+        }
         
         
         if(yespush){
+            cout << "Creating new OLS for " << json["id"].asString() << endl;
             ObjectLoadState ols;
             ols.target.id = json["id"].asString();
             ols.target.ip = json["ip"].asString();
@@ -913,21 +910,21 @@ void realityEditor::downloadTargets() {
         }
     }
     
-    // process the file downloads
-    bool loadingURL = false;
+    for (int i = 0; i < nameCount.size(); i++) {
+        for (int w = 0; w < nameCount[i].downloadStates.size(); w++) {
+            if (nameCount[i].downloadStates[w] == DownloadState::Loading) {
+                // We want only one request in-flight at a time
+                return;
+            }
+        }
+    }
+
     
     for (int i = 0; i < nameCount.size(); i++) {
-        if (loadingURL) {
-            break;
-        }
-
         for (int w = 0; w < nameCount[i].downloadStates.size(); w++) {
             DownloadState loadrunner = nameCount[i].downloadStates[w];
-            if (loadrunner == DownloadState::Loading) {
-                loadingURL = true;
-                break;
-            }
-            else if (loadrunner == DownloadState::Start) {
+            // Download the next file
+            if (loadrunner == DownloadState::Start) {
                 if (w < extensions.size()) {
                     string fileExt = extensions[w];
                     string objName = getName(nameCount[i].target.id);
@@ -936,8 +933,8 @@ void realityEditor::downloadTargets() {
                     nameCount[i].downloadStates[w] = DownloadState::Loading;
                     NSLog(@">>downloading %s", fileExt.c_str());
                     cons();
-                    // continue onto next object
-                    break;
+                    // We are done with the one request we want to make
+                    return;
                 }
             }
             // process the dictonary addon
@@ -945,9 +942,7 @@ void realityEditor::downloadTargets() {
                 string tmpDir([NSTemporaryDirectory() UTF8String]);
                 ofxVuforia & Vuforia = *ofxVuforia::getInstance();
                 
-                cout <<"--------------------";
-                cout <<nameCount[i].target.id;
-                cout <<"--------------------";
+                cout <<"Ready to load target: " << nameCount[i].target.id << endl;
 
                 if(datasetHolder ==100000){
                     datasetList.push_back(Vuforia.addExtraTarget(tmpDir + nameCount[i].target.id + ".xml"));
@@ -1250,10 +1245,11 @@ NSString* realityEditor::convertImageToBase64(ofImage image) {
 }
 
 void realityEditor::memorize() {
-    if (!tempMemory) {
-        return;
+    if (tempMemory) {
+        uploadMemory(tempMemory);
+    } else if (currentMemory) {
+        uploadMemory(currentMemory);
     }
-    uploadMemory(tempMemory);
 }
 
 void realityEditor::unfreeze() {
