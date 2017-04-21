@@ -12,7 +12,7 @@ static const string memoryNamespace = "realityEditor.gui.memory";
 //--------------------------------------------------------------
 void realityEditor::setup() {
 
-    numbersToMuch = 100;
+    numbersToMuch = 1000;
 
     ofSetFrameRate(60);
     ofSetVerticalSync(false);
@@ -498,6 +498,15 @@ void realityEditor::handleCustomRequest(NSString *request, NSURL *url) {
 void realityEditor::urlResponse(ofHttpResponse &response) {
     // if the file is ok and the request message name equals the file downloader process name,
     // in this case "done" the folloing code is run.
+    
+    // Parse out the parts of the request URL so we know which in-progress download this is
+    
+    string sURL = response.request.url;
+    size_t objNameStart = sURL.find("/obj/") + 5;
+    sURL = sURL.substr(objNameStart);
+    size_t objNameEnd = sURL.find("/");
+    string responseObjName = sURL.substr(0, objNameEnd);
+    string responseFileExt = sURL.substr(sURL.find_last_of(".") + 1);
     if (response.status == 200 && response.request.name == "done") {
 
         // go trough an array of arrays of strings.
@@ -511,13 +520,24 @@ void realityEditor::urlResponse(ofHttpResponse &response) {
                 if (loadrunner != DownloadState::Loading) {
                     continue;
                 }
-
-                string tmpDir([NSTemporaryDirectory() UTF8String]);
+                
+                string objName = getName(nameCount[i].target.id);
+                
+                if (objName != responseObjName) {
+                    continue;
+                }
+                
                 if (w >= extensions.size()) {
                   continue;
                 }
-
                 string fileExt = extensions[w];
+                cout << "fileExt: " << fileExt << endl;
+                
+                if (responseFileExt != fileExt) {
+                    continue;
+                }
+                
+                string tmpDir([NSTemporaryDirectory() UTF8String]);
                 string fileName = tmpDir + nameCount[i].target.id + "." + fileExt;
 
                 if (ofBufferToFile(fileName, response.data)) {
@@ -910,13 +930,18 @@ void realityEditor::downloadTargets() {
         }
     }
     
+    int inFlightRequests = 0;
     for (int i = 0; i < nameCount.size(); i++) {
         for (int w = 0; w < nameCount[i].downloadStates.size(); w++) {
             if (nameCount[i].downloadStates[w] == DownloadState::Loading) {
-                // We want only one request in-flight at a time
-                return;
+                inFlightRequests += 1;
             }
         }
+    }
+    
+    if (inFlightRequests > 32) {
+        // We want only 32 requests in-flight at a time
+        return;
     }
 
     
